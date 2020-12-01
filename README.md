@@ -79,7 +79,7 @@ In a second terminal window...
 export VAULT_ADDR='http://0.0.0.0:1234'
 vault login myroot
 SHASUM=$(shasum -a 256 dist/vault-launchdarkly-secrets-engine_linux_amd64/vault-launchdarkly-secrets-engine | cut -d " " -f1)
-vault write sys/plugins/catalog/secret/vault-launchdarkly-secret-engine   sha_256="$SHASUM"   command="vault-launchdarkly-secrets-engine"
+vault write sys/plugins/catalog/secret/vault-launchdarkly-secrets-engine sha_256="$SHASUM" command="vault-launchdarkly-secrets-engine"
 vault secrets enable -path="launchdarkly" -plugin-name="vault-launchdarkly-secrets-engine" plugin
-vault write launchdarkly/config accessToken="123456789"
+vault write launchdarkly/config access_token="123456789"
 ```
