@@ -6,7 +6,7 @@ import (
 
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/sdk/plugin"
-	launchdarkly "github.com/intheclouddan/vault-launchdarkly-secrets-engine/launchdarkly"
+	launchdarkly "github.com/launchdarkly-labs/vault-launchdarkly-secrets-engine/launchdarkly"
 )
 
 func main() {

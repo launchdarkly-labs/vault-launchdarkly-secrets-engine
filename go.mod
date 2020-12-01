@@ -1,4 +1,4 @@
-module github.com/intheclouddan/vault-launchdarkly-secrets-engine
+module github.com/launchdarkly-labs/vault-launchdarkly-secrets-engine
 
 go 1.14
 
