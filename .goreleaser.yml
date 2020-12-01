@@ -14,7 +14,7 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - "-s -w -X main.Version={{.Version}} -X main.GitCommit={{.ShortCommit}} -X github.com/intheclouddan/vault-launchdarkly-secrets-engine/launchdarkly.Version={{.Version}} -X github.com/intheclouddan/vault-launchdarkly-secrets-engine/launchdarkly.GitCommit={{.ShortCommit}}"
+      - "-s -w -X main.Version={{.Version}} -X main.GitCommit={{.ShortCommit}} -X github.com/launchdarkly-labs/vault-launchdarkly-secrets-engine/launchdarkly.Version={{.Version}} -X github.com/launchdarkly-labs/vault-launchdarkly-secrets-engine/launchdarkly.GitCommit={{.ShortCommit}}"
     binary: "{{ .ProjectName }}"
 archives:
   - replacements:
