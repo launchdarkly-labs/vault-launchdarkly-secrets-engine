@@ -59,7 +59,7 @@ func newClient(config *launchdarklyConfig, oauth bool) (*Client, error) {
 	cfg := &ldapi.Configuration{
 		BasePath:      basePath,
 		DefaultHeader: make(map[string]string),
-		UserAgent:     fmt.Sprintf("launchdarkly-vault-provider/0.0.1"),
+		UserAgent:     fmt.Sprintf("launchdarkly-vault-provider/%s", Version),
 	}
 
 	cfg.AddDefaultHeader("LD-API-Version", APIVersion)
@@ -141,35 +141,6 @@ func randomRetrySleep() {
 	time.Sleep(time.Duration(n) * time.Millisecond)
 }
 
-func ptr(v interface{}) *interface{} { return &v }
-
-func intPtr(i int) *int {
-	return &i
-}
-
-func patchReplace(path string, value interface{}) ldapi.PatchOperation {
-	return ldapi.PatchOperation{
-		Op:    "replace",
-		Path:  path,
-		Value: &value,
-	}
-}
-
-func patchAdd(path string, value interface{}) ldapi.PatchOperation {
-	return ldapi.PatchOperation{
-		Op:    "add",
-		Path:  path,
-		Value: &value,
-	}
-}
-
-func patchRemove(path string) ldapi.PatchOperation {
-	return ldapi.PatchOperation{
-		Op:   "remove",
-		Path: path,
-	}
-}
-
 // handleLdapiErr extracts the error message and body from a ldapi.GenericSwaggerError or simply returns the
 // error  if it is not a ldapi.GenericSwaggerError
 func handleLdapiErr(err error) error {
@@ -180,21 +151,6 @@ func handleLdapiErr(err error) error {
 		return fmt.Errorf("%s: %s", swaggerErr.Error(), string(swaggerErr.Body()))
 	}
 	return err
-}
-
-func isStatusNotFound(response *http.Response) bool {
-	if response != nil && response.StatusCode == http.StatusNotFound {
-		return true
-	}
-	return false
-}
-
-func stringSliceToInterfaceSlice(input []string) []interface{} {
-	o := make([]interface{}, 0, len(input))
-	for _, v := range input {
-		o = append(o, v)
-	}
-	return o
 }
 
 func configCheck(config *launchdarklyConfig) error {
