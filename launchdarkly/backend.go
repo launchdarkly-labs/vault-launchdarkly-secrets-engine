@@ -2,10 +2,13 @@ package launchdarkly
 
 import (
 	"context"
+	"fmt"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
+	ldapi "github.com/launchdarkly/api-client-go"
 
 	"github.com/pkg/errors"
 )
@@ -77,6 +80,14 @@ Configure launchdarkly secret engine.
 						Type:        framework.TypeString,
 						Description: "LaunchDarkly baseUri.",
 						Default:     "",
+					},
+					"ttl": {
+						Type:        framework.TypeDurationSecond,
+						Description: "Default lease for generated keys. If <= 0, will use system default.",
+					},
+					"max_ttl": {
+						Type:        framework.TypeDurationSecond,
+						Description: "Maximum time a service account key is valid for. If <= 0, will use system default.",
 					},
 				},
 				Callbacks: map[logical.Operation]framework.OperationFunc{
@@ -203,6 +214,9 @@ Configure launchdarkly secret engine.
 				},
 			},
 		},
+		Secrets: []*framework.Secret{
+			b.programmaticAPIKeys(),
+		},
 	}
 
 	return b
@@ -213,6 +227,98 @@ func (b *backend) Close() {
 	defer b.clientMutex.Unlock()
 }
 
+func (b *backend) programmaticAPIKeys() *framework.Secret {
+	return &framework.Secret{
+		Type: programmaticAPIKey,
+		Fields: map[string]*framework.FieldSchema{
+			"token": {
+				Type:        framework.TypeString,
+				Description: "Programmatic API Key Public Key",
+			},
+		},
+		Renew:  b.programmaticAPIKeysRenew,
+		Revoke: b.programmaticAPIKeyRevoke,
+	}
+}
+
+func (b *backend) programmaticAPIKeyRevoke(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+
+	programmaticAPIKeyIDRaw, ok := req.Secret.InternalData["api_key_id"]
+	if !ok {
+		return nil, fmt.Errorf("secret is missing programmatic api key id internal data")
+	}
+
+	programmaticAPIKeyID, ok := programmaticAPIKeyIDRaw.(string)
+	if !ok {
+		return nil, fmt.Errorf("secret is missing programmatic api key id internal data")
+	}
+
+	TypeRaw, ok := req.Secret.InternalData["credential_type"]
+	if !ok {
+		return nil, fmt.Errorf("secret is missing credential_type internal data")
+	}
+
+	KeyType, ok := TypeRaw.(string)
+	if !ok {
+		return nil, fmt.Errorf("secret is missing credential_type internal data")
+	}
+
+	config, err := getConfig(b, ctx, req.Storage)
+	if err != nil {
+		return nil, err
+	}
+	switch KeyType {
+	case "api":
+		DeleteRoleToken(config, programmaticAPIKeyID)
+	case "rac":
+		DeleteRelayToken(config, programmaticAPIKeyID)
+	}
+
+	return nil, nil
+}
+
+func (b *backend) readCredentials(ctx context.Context, s logical.Storage, credentialName string, credentialType string) (*tokenCredentialEntry, error) {
+	var roleEntry tokenCredentialEntry
+	entry, err := s.Get(ctx, credentialType+"/"+credentialName)
+	if err != nil {
+		return nil, err
+	}
+	if entry != nil {
+		if err := entry.DecodeJSON(&roleEntry); err != nil {
+			return nil, err
+		}
+		return &roleEntry, nil
+	}
+	return nil, nil
+}
+
+func (b *backend) programmaticAPIKeysRenew(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+	config, err := getConfig(b, ctx, req.Storage)
+	if err != nil {
+		return nil, err
+	}
+	resp := &logical.Response{Secret: req.Secret}
+	resp.Secret.TTL = config.TTL
+	resp.Secret.MaxTTL = config.MaxTTL
+	return resp, nil
+}
+
 const backendHelp = `
 The LaunchDarkly secrets engine generates LaunchDarkly tokens.
 `
+const programmaticAPIKey = `LDApiKey`
+
+type tokenCredentialEntry struct {
+	Token  ldapi.Token   `json:"token"`
+	TTL    time.Duration `json:"ttl"`
+	MaxTTL time.Duration `json:"max_ttl"`
+}
+
+func (r tokenCredentialEntry) toResponseData() map[string]interface{} {
+	respData := map[string]interface{}{
+		"token":   r.Token,
+		"ttl":     r.TTL.Seconds(),
+		"max_ttl": r.MaxTTL.Seconds(),
+	}
+	return respData
+}

@@ -38,35 +38,35 @@ func (b *backend) pathRoleRead(ctx context.Context, req *logical.Request, data *
 		}
 	}
 
-	// This was test for storing the token and reading it back to next request.
-	// if entry != nil {
-	// 	return &logical.Response{
-	// 		Data: map[string]interface{}{
-	// 			"token": roleEntry.Token,
-	// 		},
-	// 	}, nil
-	// }
-
 	token, err := CreateRoleToken(config, roleName, tokenName)
 	if err != nil {
 		return nil, err
 	}
 
-	newEntry, err := logical.StorageEntryJSON("role/"+roleName, token)
+	resp := b.Secret(programmaticAPIKey).Response(map[string]interface{}{
+		"token": token.Token,
+	}, map[string]interface{}{
+		"api_key_id":      token.Id,
+		"credential_type": "api",
+		"secret_type":     "role",
+	})
+
+	return resp, nil
+}
+
+func (b *backend) readRoleCredentials(ctx context.Context, s logical.Storage, credentialName string) (*tokenCredentialEntry, error) {
+	var roleEntry tokenCredentialEntry
+	entry, err := s.Get(ctx, "role/"+credentialName)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Storage.Put(ctx, newEntry)
-	if err != nil {
-		return nil, err
+	if entry != nil {
+		if err := entry.DecodeJSON(&roleEntry); err != nil {
+			return nil, err
+		}
+		return &roleEntry, nil
 	}
-
-	return &logical.Response{
-		Data: map[string]interface{}{
-			"token": token.Token,
-		},
-	}, nil
+	return nil, nil
 }
 
 func (b *backend) pathRoleDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
@@ -89,15 +89,6 @@ func (b *backend) pathRoleDelete(ctx context.Context, req *logical.Request, data
 			return nil, err
 		}
 	}
-
-	// This was test for storing the token and reading it back to next request.
-	// if entry != nil {
-	// 	return &logical.Response{
-	// 		Data: map[string]interface{}{
-	// 			"token": roleEntry.Token,
-	// 		},
-	// 	}, nil
-	// }
 
 	token, err := CreateRoleToken(config, roleName, tokenName)
 	if err != nil {
@@ -144,32 +135,18 @@ func CreateRoleToken(config *launchdarklyConfig, role string, name string) (*lda
 	return &token, nil
 }
 
-// func (b *backend) roleRead(ctx context.Context, s logical.Storage, roleName string, shouldLock bool) (*ldapi.Token, error) {
-// 	if roleName == "" {
-// 		return nil, fmt.Errorf("missing role name")
-// 	}
+func DeleteRoleToken(config *launchdarklyConfig, id string) (*ldapi.Token, error) {
+	//logger := hclog.New(&hclog.LoggerOptions{})
 
-// 	entry, err := s.Get(ctx, "role/"+roleName)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	client, err := newClient(config, false)
+	if err != nil {
+		return nil, err
+	}
 
-// 	var tokenEntry ldapi.Token
-// 	if entry != nil {
-// 		if err := entry.DecodeJSON(&tokenEntry); err != nil {
-// 			return nil, err
-// 		}
-// 		return &tokenEntry, nil
-// 	}
+	_, err = client.ld.AccessTokensApi.DeleteToken(client.ctx, id)
+	if err != nil {
+		return nil, handleLdapiErr(err)
+	}
 
-// 	entry, err = s.Get(ctx, "role/"+roleName)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	newRoleEntry := ldapi.Token{
-// 		Name: roleName,
-// 	}
-
-// 	return &newRoleEntry, nil
-// }
+	return nil, nil
+}

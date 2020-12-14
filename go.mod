@@ -7,6 +7,7 @@ require (
 	github.com/armon/go-radix v1.0.0 // indirect
 	github.com/go-test/deep v1.0.3 // indirect
 	github.com/golang/protobuf v1.4.2 // indirect
+	github.com/hashicorp/errwrap v1.0.0
 	github.com/hashicorp/go-hclog v0.9.2
 	github.com/hashicorp/go-plugin v1.3.0 // indirect
 	github.com/hashicorp/go-version v1.2.1 // indirect

@@ -57,16 +57,22 @@ func (b *backend) pathCoderefsRead(ctx context.Context, req *logical.Request, da
 		return nil, err
 	}
 
-	return &logical.Response{
-		Data: map[string]interface{}{
-			"token": token.Token,
-		},
-	}, nil
+	resp := b.Secret(programmaticAPIKey).Response(map[string]interface{}{
+		"token": token.Token,
+	}, map[string]interface{}{
+		"api_key_id":      token.Id,
+		"credential_type": "api",
+		"secret_type":     "coderefs",
+	})
+
+	resp.Secret.MaxTTL = config.MaxTTL
+	resp.Secret.TTL = config.TTL
+
+	return resp, nil
 }
 
 func (b *backend) pathCoderefsDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	//logger := hclog.New(&hclog.LoggerOptions{})
-	// Validate we didn't get extraneous fields
 	if err := validateFields(req, data); err != nil {
 		return nil, logical.CodedError(422, err.Error())
 	}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -13,6 +14,8 @@ import (
 type launchdarklyConfig struct {
 	AccessToken string `json:"access_token"`
 	BaseUri     string `json:"base_uri`
+	TTL         time.Duration
+	MaxTTL      time.Duration
 }
 
 func (b *backend) pathConfigWrite(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
@@ -22,7 +25,7 @@ func (b *backend) pathConfigWrite(ctx context.Context, req *logical.Request, dat
 	}
 
 	accessToken := data.Get("access_token").(string)
-	if !strings.HasPrefix(accessToken, "api-") {
+	if accessToken != "" && !strings.HasPrefix(accessToken, "api-") {
 		return nil, errors.New("Token should start with `api-`")
 	}
 
@@ -35,6 +38,8 @@ func (b *backend) pathConfigWrite(ctx context.Context, req *logical.Request, dat
 		config = &launchdarklyConfig{
 			BaseUri:     "https://app.launchdarkly.com",
 			AccessToken: "",
+			MaxTTL:      0,
+			TTL:         0,
 		}
 	}
 
@@ -76,6 +81,13 @@ func (b *backend) pathConfigRead(ctx context.Context, req *logical.Request, data
 		resp["base_uri"] = v
 	}
 
+	if v := config.MaxTTL; v != 0 {
+		resp["max_ttl"] = v
+	}
+
+	if v := config.TTL; v != 0 {
+		resp["ttl"] = v
+	}
 	return &logical.Response{
 		Data: resp,
 	}, nil
@@ -91,6 +103,21 @@ func (config *launchdarklyConfig) Update(data *framework.FieldData) error {
 	if len(baseUri) > 0 {
 		config.BaseUri = baseUri
 	}
+
+	maxTTL, ok := data.GetOk("max_ttl")
+	if ok {
+		if maxTTL.(int) > 0 {
+			config.MaxTTL = time.Duration(maxTTL.(int)) * time.Second
+		}
+	}
+
+	TTL, ok := data.GetOk("ttl")
+	if ok {
+		if TTL.(int) > 0 {
+			config.TTL = time.Duration(TTL.(int)) * time.Second
+		}
+	}
+
 	return nil
 }
 
