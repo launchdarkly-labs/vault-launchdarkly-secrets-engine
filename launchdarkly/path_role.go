@@ -32,6 +32,9 @@ func (b *backend) pathRoleRead(ctx context.Context, req *logical.Request, data *
 
 	var roleEntry ldapi.Token
 	entry, err := req.Storage.Get(ctx, "role/"+roleName)
+	if err != nil {
+		return nil, err
+	}
 	if entry != nil {
 		if err := entry.DecodeJSON(&roleEntry); err != nil {
 			return nil, err
@@ -84,6 +87,9 @@ func (b *backend) pathRoleDelete(ctx context.Context, req *logical.Request, data
 
 	var roleEntry ldapi.Token
 	entry, err := req.Storage.Get(ctx, "role/"+roleName)
+	if err != nil {
+		return nil, err
+	}
 	if entry != nil {
 		if err := entry.DecodeJSON(&roleEntry); err != nil {
 			return nil, err
@@ -100,7 +106,7 @@ func (b *backend) pathRoleDelete(ctx context.Context, req *logical.Request, data
 		return nil, err
 	}
 
-	req.Storage.Put(ctx, newEntry)
+	err = req.Storage.Put(ctx, newEntry)
 	if err != nil {
 		return nil, err
 	}

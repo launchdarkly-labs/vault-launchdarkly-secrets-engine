@@ -269,9 +269,15 @@ func (b *backend) programmaticAPIKeyRevoke(ctx context.Context, req *logical.Req
 	}
 	switch KeyType {
 	case "api":
-		DeleteRoleToken(config, programmaticAPIKeyID)
+		_, err := DeleteRoleToken(config, programmaticAPIKeyID)
+		if err != nil {
+			return nil, err
+		}
 	case "rac":
-		DeleteRelayToken(config, programmaticAPIKeyID)
+		err := DeleteRelayToken(config, programmaticAPIKeyID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return nil, nil

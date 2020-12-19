@@ -13,7 +13,7 @@ import (
 
 type launchdarklyConfig struct {
 	AccessToken string `json:"access_token"`
-	BaseUri     string `json:"base_uri`
+	BaseUri     string `json:"base_uri"`
 	TTL         time.Duration
 	MaxTTL      time.Duration
 }

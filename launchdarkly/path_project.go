@@ -33,6 +33,11 @@ func (b *backend) pathProjectEnvRead(ctx context.Context, req *logical.Request, 
 
 	var envEntry map[string]interface{}
 	entry, err := req.Storage.Get(ctx, "project/"+projectKey)
+
+	if err != nil {
+		return nil, err
+	}
+
 	if entry != nil {
 		if err := entry.DecodeJSON(&envEntry); err != nil {
 			return nil, err
@@ -69,7 +74,7 @@ func (b *backend) pathProjectEnvRead(ctx context.Context, req *logical.Request, 
 		return nil, err
 	}
 
-	req.Storage.Put(ctx, newEntry)
+	err = req.Storage.Put(ctx, newEntry)
 	if err != nil {
 		return nil, err
 	}

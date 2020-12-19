@@ -27,6 +27,10 @@ func (b *backend) pathCoderefsRead(ctx context.Context, req *logical.Request, da
 
 	var tokenEntry ldapi.Token
 	entry, err := req.Storage.Get(ctx, "coderefs/"+projectName)
+	if err != nil {
+		return nil, err
+	}
+
 	if entry != nil {
 		if err := entry.DecodeJSON(&tokenEntry); err != nil {
 			return nil, err
@@ -52,7 +56,7 @@ func (b *backend) pathCoderefsRead(ctx context.Context, req *logical.Request, da
 		return nil, err
 	}
 
-	req.Storage.Put(ctx, newEntry)
+	err = req.Storage.Put(ctx, newEntry)
 	if err != nil {
 		return nil, err
 	}
@@ -86,6 +90,9 @@ func (b *backend) pathCoderefsDelete(ctx context.Context, req *logical.Request, 
 
 	var tokenEntry ldapi.Token
 	entry, err := req.Storage.Get(ctx, "coderefs/"+name)
+	if err != nil {
+		return nil, err
+	}
 
 	if entry != nil {
 		if err := entry.DecodeJSON(&tokenEntry); err != nil {

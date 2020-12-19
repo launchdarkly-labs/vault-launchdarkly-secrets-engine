@@ -37,7 +37,7 @@ func (b *backend) pathRelayWrite(ctx context.Context, req *logical.Request, data
 		return nil, err
 	}
 
-	req.Storage.Put(ctx, newEntry)
+	err = req.Storage.Put(ctx, newEntry)
 	if err != nil {
 		return nil, err
 	}
@@ -65,6 +65,9 @@ func (b *backend) pathRelayRead(ctx context.Context, req *logical.Request, data 
 	var tokenPolicy ldapi.Policy
 
 	policyEntry, err := req.Storage.Get(ctx, "relay/policy/"+name)
+	if err != nil {
+		return nil, err
+	}
 	if policyEntry == nil {
 		return nil, nil
 	}
@@ -132,7 +135,9 @@ func (b *backend) pathRelayDelete(ctx context.Context, req *logical.Request, dat
 
 	var relayEntry ldapi.RelayProxyConfig
 	entry, err := req.Storage.Get(ctx, "relayEntry/"+name)
-
+	if err != nil {
+		return nil, err
+	}
 	if entry != nil {
 		if err := entry.DecodeJSON(&relayEntry); err != nil {
 			return nil, err
