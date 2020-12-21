@@ -4,11 +4,9 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
-	ldapi "github.com/launchdarkly/api-client-go"
 
 	"github.com/pkg/errors"
 )
@@ -124,6 +122,7 @@ Configure launchdarkly secret engine.
 				Callbacks: map[logical.Operation]framework.OperationFunc{
 					logical.CreateOperation: b.pathRelayWrite,
 					logical.UpdateOperation: b.pathRelayWrite,
+					logical.DeleteOperation: b.pathRelayDelete,
 				},
 			},
 			&framework.Path{
@@ -136,12 +135,10 @@ Configure launchdarkly secret engine.
 					},
 				},
 				Callbacks: map[logical.Operation]framework.OperationFunc{
-					logical.ReadOperation:   b.pathRelayRead,
-					logical.DeleteOperation: b.pathRelayDelete,
+					logical.ReadOperation: b.pathRelayRead,
 				},
 			},
 			&framework.Path{
-				//Pattern: "role/" + framework.GenericNameWithAtRegex("customrole"),
 				Pattern: "role/" + GenericLDKeyWithAtRegex("customrole"),
 				Fields: map[string]*framework.FieldSchema{
 					"customrole": {
@@ -155,8 +152,7 @@ Configure launchdarkly secret engine.
 					},
 				},
 				Callbacks: map[logical.Operation]framework.OperationFunc{
-					logical.ReadOperation:   b.pathRoleRead,
-					logical.DeleteOperation: b.pathRoleDelete,
+					logical.ReadOperation: b.pathRoleRead,
 				},
 			},
 			&framework.Path{
@@ -209,8 +205,7 @@ Configure launchdarkly secret engine.
 					},
 				},
 				Callbacks: map[logical.Operation]framework.OperationFunc{
-					logical.ReadOperation:   b.pathCoderefsRead,
-					logical.DeleteOperation: b.pathCoderefsDelete,
+					logical.ReadOperation: b.pathCoderefsRead,
 				},
 			},
 		},
@@ -283,21 +278,6 @@ func (b *backend) programmaticAPIKeyRevoke(ctx context.Context, req *logical.Req
 	return nil, nil
 }
 
-func (b *backend) readCredentials(ctx context.Context, s logical.Storage, credentialName string, credentialType string) (*tokenCredentialEntry, error) {
-	var roleEntry tokenCredentialEntry
-	entry, err := s.Get(ctx, credentialType+"/"+credentialName)
-	if err != nil {
-		return nil, err
-	}
-	if entry != nil {
-		if err := entry.DecodeJSON(&roleEntry); err != nil {
-			return nil, err
-		}
-		return &roleEntry, nil
-	}
-	return nil, nil
-}
-
 func (b *backend) programmaticAPIKeysRenew(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	config, err := getConfig(b, ctx, req.Storage)
 	if err != nil {
@@ -313,18 +293,3 @@ const backendHelp = `
 The LaunchDarkly secrets engine generates LaunchDarkly tokens.
 `
 const programmaticAPIKey = `LDApiKey`
-
-type tokenCredentialEntry struct {
-	Token  ldapi.Token   `json:"token"`
-	TTL    time.Duration `json:"ttl"`
-	MaxTTL time.Duration `json:"max_ttl"`
-}
-
-func (r tokenCredentialEntry) toResponseData() map[string]interface{} {
-	respData := map[string]interface{}{
-		"token":   r.Token,
-		"ttl":     r.TTL.Seconds(),
-		"max_ttl": r.MaxTTL.Seconds(),
-	}
-	return respData
-}

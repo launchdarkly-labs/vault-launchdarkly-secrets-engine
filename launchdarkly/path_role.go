@@ -3,6 +3,7 @@ package launchdarkly
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -54,22 +55,15 @@ func (b *backend) pathRoleRead(ctx context.Context, req *logical.Request, data *
 		"secret_type":     "role",
 	})
 
-	return resp, nil
-}
+	if config.TTL != 0 {
+		resp.Secret.TTL = config.TTL * time.Second
+	}
 
-func (b *backend) readRoleCredentials(ctx context.Context, s logical.Storage, credentialName string) (*tokenCredentialEntry, error) {
-	var roleEntry tokenCredentialEntry
-	entry, err := s.Get(ctx, "role/"+credentialName)
-	if err != nil {
-		return nil, err
+	if config.MaxTTL != 0 {
+		resp.Secret.MaxTTL = config.MaxTTL * time.Second
 	}
-	if entry != nil {
-		if err := entry.DecodeJSON(&roleEntry); err != nil {
-			return nil, err
-		}
-		return &roleEntry, nil
-	}
-	return nil, nil
+
+	return resp, nil
 }
 
 func (b *backend) pathRoleDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
@@ -85,37 +79,22 @@ func (b *backend) pathRoleDelete(ctx context.Context, req *logical.Request, data
 		return nil, err
 	}
 
-	var roleEntry ldapi.Token
-	entry, err := req.Storage.Get(ctx, "role/"+roleName)
-	if err != nil {
-		return nil, err
-	}
-	if entry != nil {
-		if err := entry.DecodeJSON(&roleEntry); err != nil {
-			return nil, err
-		}
-	}
-
 	token, err := CreateRoleToken(config, roleName, tokenName)
 	if err != nil {
 		return nil, err
 	}
 
-	newEntry, err := logical.StorageEntryJSON("role/"+roleName, token)
-	if err != nil {
-		return nil, err
-	}
+	resp := b.Secret(programmaticAPIKey).Response(map[string]interface{}{
+		"token": token.Token,
+	}, map[string]interface{}{
+		"api_key_id":      token.Id,
+		"credential_type": "api",
+		"secret_type":     "role",
+	})
 
-	err = req.Storage.Put(ctx, newEntry)
-	if err != nil {
-		return nil, err
-	}
-
-	return &logical.Response{
-		Data: map[string]interface{}{
-			"token": token.Token,
-		},
-	}, nil
+	resp.Secret.MaxTTL = config.MaxTTL
+	resp.Secret.TTL = config.TTL
+	return resp, nil
 }
 
 // CreatelaunchdarklyToken uses launchdarkly API to create an API token

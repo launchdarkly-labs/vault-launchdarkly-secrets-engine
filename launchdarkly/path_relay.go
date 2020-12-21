@@ -128,32 +128,9 @@ func (b *backend) pathRelayDelete(ctx context.Context, req *logical.Request, dat
 
 	name := data.Get("name").(string)
 
-	config, err := getConfig(b, ctx, req.Storage)
+	err := req.Storage.Delete(ctx, "relay/policy/"+name)
 	if err != nil {
 		return nil, err
-	}
-
-	var relayEntry ldapi.RelayProxyConfig
-	entry, err := req.Storage.Get(ctx, "relayEntry/"+name)
-	if err != nil {
-		return nil, err
-	}
-	if entry != nil {
-		if err := entry.DecodeJSON(&relayEntry); err != nil {
-			return nil, err
-		}
-	}
-
-	if entry != nil {
-		err := DeleteRelayToken(config, relayEntry.Id)
-		if err != nil {
-			return nil, handleLdapiErr(err)
-		}
-
-		err = req.Storage.Delete(ctx, "relayEntry/"+name)
-		if err != nil {
-			return nil, handleLdapiErr(err)
-		}
 	}
 	return nil, nil
 }

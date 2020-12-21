@@ -107,15 +107,19 @@ func (config *launchdarklyConfig) Update(data *framework.FieldData) error {
 	maxTTL, ok := data.GetOk("max_ttl")
 	if ok {
 		if maxTTL.(int) > 0 {
-			config.MaxTTL = time.Duration(maxTTL.(int)) * time.Second
+			config.MaxTTL = time.Duration(maxTTL.(int))
 		}
 	}
 
 	TTL, ok := data.GetOk("ttl")
 	if ok {
 		if TTL.(int) > 0 {
-			config.TTL = time.Duration(TTL.(int)) * time.Second
+			config.TTL = time.Duration(TTL.(int))
 		}
+	}
+	// Only overwrite this is TTL is 0 and not configured.
+	if !ok && config.TTL == 0 && maxTTL != nil && maxTTL.(int) > 0 {
+		config.TTL = time.Duration(maxTTL.(int))
 	}
 
 	return nil
