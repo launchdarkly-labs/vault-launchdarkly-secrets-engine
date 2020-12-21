@@ -1,7 +1,6 @@
 package launchdarkly
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -19,7 +18,6 @@ func TestAccessRelayCreds(t *testing.T) {
 	t.Run("write relay policy", acceptanceTestEnv.writeRelayPolicy)
 	t.Run("read relay token", acceptanceTestEnv.readRelayToken)
 	t.Run("read relay no path", acceptanceTestEnv.readNonExistantRelayToken)
-	t.Run("delete relay token", acceptanceTestEnv.deleteRelayToken)
 }
 
 func (e *testEnv) readRelayToken(t *testing.T) {
@@ -75,21 +73,5 @@ func (e *testEnv) writeRelayPolicy(t *testing.T) {
 
 	if !strings.Contains(resp.Data["inline_policy"].(string), `{"resources":["proj/*:env/*"], "actions": ["*"], "effect":"allow"}`) {
 		t.Fatal("policy does not match")
-	}
-}
-
-func (e *testEnv) deleteRelayToken(t *testing.T) {
-	req := &logical.Request{
-		Operation: logical.DeleteOperation,
-		Path:      "relay/testVault",
-		Storage:   e.Storage,
-	}
-	resp, err := e.Backend.HandleRequest(e.Context, req)
-	if err != nil {
-		t.Fatalf("bad: resp: %#v\nerr:%v", resp, err)
-	}
-	fmt.Println(resp)
-	if resp != nil {
-		t.Fatal("token not successfully removed")
 	}
 }
