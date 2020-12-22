@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -89,8 +90,8 @@ func (b *backend) pathRelayRead(ctx context.Context, req *logical.Request, data 
 		"credential_type": "rac",
 		"secret_type":     "relay",
 	})
-	resp.Secret.MaxTTL = config.MaxTTL
-	resp.Secret.TTL = config.TTL
+	resp.Secret.MaxTTL = config.MaxTTL * time.Second
+	resp.Secret.TTL = config.TTL * time.Second
 
 	return resp, nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/sdk/framework"
@@ -36,8 +37,8 @@ func (b *backend) pathCoderefsRead(ctx context.Context, req *logical.Request, da
 		"secret_type":     "coderefs",
 	})
 
-	resp.Secret.MaxTTL = config.MaxTTL
-	resp.Secret.TTL = config.TTL
+	resp.Secret.MaxTTL = config.MaxTTL * time.Second
+	resp.Secret.TTL = config.TTL * time.Second
 
 	return resp, nil
 }
