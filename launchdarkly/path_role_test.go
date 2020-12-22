@@ -16,7 +16,6 @@ func TestRoleToken(t *testing.T) {
 
 	t.Run("add config", acceptanceTestEnv.addConfig)
 	t.Run("read role token", acceptanceTestEnv.readRoleToken)
-	t.Run("delete role token", acceptanceTestEnv.deleteCoderefsToken)
 }
 
 func (e *testEnv) readRoleToken(t *testing.T) {
@@ -34,21 +33,5 @@ func (e *testEnv) readRoleToken(t *testing.T) {
 	}
 	if resp.Data["token"] == "" || !strings.HasPrefix(resp.Data["token"].(string), "api-") {
 		t.Fatal("token does not match expected format")
-	}
-}
-
-func (e *testEnv) deleteRoleToken(t *testing.T) {
-	req := &logical.Request{
-		Operation: logical.DeleteOperation,
-		Path:      "role/test-vault-role",
-		Storage:   e.Storage,
-	}
-	resp, err := e.Backend.HandleRequest(e.Context, req)
-	if err != nil {
-		t.Fatalf("bad: resp: %#v\nerr:%v", resp, err)
-	}
-
-	if resp != nil {
-		t.Fatal("token not successfully removed")
 	}
 }

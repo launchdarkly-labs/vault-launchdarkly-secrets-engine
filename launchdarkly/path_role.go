@@ -3,6 +3,7 @@ package launchdarkly
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -32,41 +33,37 @@ func (b *backend) pathRoleRead(ctx context.Context, req *logical.Request, data *
 
 	var roleEntry ldapi.Token
 	entry, err := req.Storage.Get(ctx, "role/"+roleName)
+	if err != nil {
+		return nil, err
+	}
 	if entry != nil {
 		if err := entry.DecodeJSON(&roleEntry); err != nil {
 			return nil, err
 		}
 	}
 
-	// This was test for storing the token and reading it back to next request.
-	// if entry != nil {
-	// 	return &logical.Response{
-	// 		Data: map[string]interface{}{
-	// 			"token": roleEntry.Token,
-	// 		},
-	// 	}, nil
-	// }
-
 	token, err := CreateRoleToken(config, roleName, tokenName)
 	if err != nil {
 		return nil, err
 	}
 
-	newEntry, err := logical.StorageEntryJSON("role/"+roleName, token)
-	if err != nil {
-		return nil, err
+	resp := b.Secret(programmaticAPIKey).Response(map[string]interface{}{
+		"token": token.Token,
+	}, map[string]interface{}{
+		"api_key_id":      token.Id,
+		"credential_type": "api",
+		"secret_type":     "role",
+	})
+
+	if config.TTL != 0 {
+		resp.Secret.TTL = config.TTL * time.Second
 	}
 
-	req.Storage.Put(ctx, newEntry)
-	if err != nil {
-		return nil, err
+	if config.MaxTTL != 0 {
+		resp.Secret.MaxTTL = config.MaxTTL * time.Second
 	}
 
-	return &logical.Response{
-		Data: map[string]interface{}{
-			"token": token.Token,
-		},
-	}, nil
+	return resp, nil
 }
 
 func (b *backend) pathRoleDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
@@ -82,43 +79,22 @@ func (b *backend) pathRoleDelete(ctx context.Context, req *logical.Request, data
 		return nil, err
 	}
 
-	var roleEntry ldapi.Token
-	entry, err := req.Storage.Get(ctx, "role/"+roleName)
-	if entry != nil {
-		if err := entry.DecodeJSON(&roleEntry); err != nil {
-			return nil, err
-		}
-	}
-
-	// This was test for storing the token and reading it back to next request.
-	// if entry != nil {
-	// 	return &logical.Response{
-	// 		Data: map[string]interface{}{
-	// 			"token": roleEntry.Token,
-	// 		},
-	// 	}, nil
-	// }
-
 	token, err := CreateRoleToken(config, roleName, tokenName)
 	if err != nil {
 		return nil, err
 	}
 
-	newEntry, err := logical.StorageEntryJSON("role/"+roleName, token)
-	if err != nil {
-		return nil, err
-	}
+	resp := b.Secret(programmaticAPIKey).Response(map[string]interface{}{
+		"token": token.Token,
+	}, map[string]interface{}{
+		"api_key_id":      token.Id,
+		"credential_type": "api",
+		"secret_type":     "role",
+	})
 
-	req.Storage.Put(ctx, newEntry)
-	if err != nil {
-		return nil, err
-	}
-
-	return &logical.Response{
-		Data: map[string]interface{}{
-			"token": token.Token,
-		},
-	}, nil
+	resp.Secret.MaxTTL = config.MaxTTL
+	resp.Secret.TTL = config.TTL
+	return resp, nil
 }
 
 // CreatelaunchdarklyToken uses launchdarkly API to create an API token
@@ -144,32 +120,18 @@ func CreateRoleToken(config *launchdarklyConfig, role string, name string) (*lda
 	return &token, nil
 }
 
-// func (b *backend) roleRead(ctx context.Context, s logical.Storage, roleName string, shouldLock bool) (*ldapi.Token, error) {
-// 	if roleName == "" {
-// 		return nil, fmt.Errorf("missing role name")
-// 	}
+func DeleteRoleToken(config *launchdarklyConfig, id string) (*ldapi.Token, error) {
+	//logger := hclog.New(&hclog.LoggerOptions{})
 
-// 	entry, err := s.Get(ctx, "role/"+roleName)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	client, err := newClient(config, false)
+	if err != nil {
+		return nil, err
+	}
 
-// 	var tokenEntry ldapi.Token
-// 	if entry != nil {
-// 		if err := entry.DecodeJSON(&tokenEntry); err != nil {
-// 			return nil, err
-// 		}
-// 		return &tokenEntry, nil
-// 	}
+	_, err = client.ld.AccessTokensApi.DeleteToken(client.ctx, id)
+	if err != nil {
+		return nil, handleLdapiErr(err)
+	}
 
-// 	entry, err = s.Get(ctx, "role/"+roleName)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	newRoleEntry := ldapi.Token{
-// 		Name: roleName,
-// 	}
-
-// 	return &newRoleEntry, nil
-// }
+	return nil, nil
+}

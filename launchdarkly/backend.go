@@ -2,6 +2,7 @@ package launchdarkly
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/hashicorp/vault/sdk/framework"
@@ -78,6 +79,14 @@ Configure launchdarkly secret engine.
 						Description: "LaunchDarkly baseUri.",
 						Default:     "",
 					},
+					"ttl": {
+						Type:        framework.TypeDurationSecond,
+						Description: "Default lease for generated keys. If <= 0, will use system default.",
+					},
+					"max_ttl": {
+						Type:        framework.TypeDurationSecond,
+						Description: "Maximum time a service account key is valid for. If <= 0, will use system default.",
+					},
 				},
 				Callbacks: map[logical.Operation]framework.OperationFunc{
 					logical.ReadOperation:   b.pathConfigRead,
@@ -113,6 +122,7 @@ Configure launchdarkly secret engine.
 				Callbacks: map[logical.Operation]framework.OperationFunc{
 					logical.CreateOperation: b.pathRelayWrite,
 					logical.UpdateOperation: b.pathRelayWrite,
+					logical.DeleteOperation: b.pathRelayDelete,
 				},
 			},
 			&framework.Path{
@@ -125,12 +135,10 @@ Configure launchdarkly secret engine.
 					},
 				},
 				Callbacks: map[logical.Operation]framework.OperationFunc{
-					logical.ReadOperation:   b.pathRelayRead,
-					logical.DeleteOperation: b.pathRelayDelete,
+					logical.ReadOperation: b.pathRelayRead,
 				},
 			},
 			&framework.Path{
-				//Pattern: "role/" + framework.GenericNameWithAtRegex("customrole"),
 				Pattern: "role/" + GenericLDKeyWithAtRegex("customrole"),
 				Fields: map[string]*framework.FieldSchema{
 					"customrole": {
@@ -144,8 +152,7 @@ Configure launchdarkly secret engine.
 					},
 				},
 				Callbacks: map[logical.Operation]framework.OperationFunc{
-					logical.ReadOperation:   b.pathRoleRead,
-					logical.DeleteOperation: b.pathRoleDelete,
+					logical.ReadOperation: b.pathRoleRead,
 				},
 			},
 			&framework.Path{
@@ -198,10 +205,12 @@ Configure launchdarkly secret engine.
 					},
 				},
 				Callbacks: map[logical.Operation]framework.OperationFunc{
-					logical.ReadOperation:   b.pathCoderefsRead,
-					logical.DeleteOperation: b.pathCoderefsDelete,
+					logical.ReadOperation: b.pathCoderefsRead,
 				},
 			},
+		},
+		Secrets: []*framework.Secret{
+			b.programmaticAPIKeys(),
 		},
 	}
 
@@ -213,6 +222,74 @@ func (b *backend) Close() {
 	defer b.clientMutex.Unlock()
 }
 
+func (b *backend) programmaticAPIKeys() *framework.Secret {
+	return &framework.Secret{
+		Type: programmaticAPIKey,
+		Fields: map[string]*framework.FieldSchema{
+			"token": {
+				Type:        framework.TypeString,
+				Description: "Programmatic API Key Public Key",
+			},
+		},
+		Renew:  b.programmaticAPIKeysRenew,
+		Revoke: b.programmaticAPIKeyRevoke,
+	}
+}
+
+func (b *backend) programmaticAPIKeyRevoke(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+
+	programmaticAPIKeyIDRaw, ok := req.Secret.InternalData["api_key_id"]
+	if !ok {
+		return nil, fmt.Errorf("secret is missing programmatic api key id internal data")
+	}
+
+	programmaticAPIKeyID, ok := programmaticAPIKeyIDRaw.(string)
+	if !ok {
+		return nil, fmt.Errorf("secret is missing programmatic api key id internal data")
+	}
+
+	TypeRaw, ok := req.Secret.InternalData["credential_type"]
+	if !ok {
+		return nil, fmt.Errorf("secret is missing credential_type internal data")
+	}
+
+	KeyType, ok := TypeRaw.(string)
+	if !ok {
+		return nil, fmt.Errorf("secret is missing credential_type internal data")
+	}
+
+	config, err := getConfig(b, ctx, req.Storage)
+	if err != nil {
+		return nil, err
+	}
+	switch KeyType {
+	case "api":
+		_, err := DeleteRoleToken(config, programmaticAPIKeyID)
+		if err != nil {
+			return nil, err
+		}
+	case "rac":
+		err := DeleteRelayToken(config, programmaticAPIKeyID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return nil, nil
+}
+
+func (b *backend) programmaticAPIKeysRenew(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+	config, err := getConfig(b, ctx, req.Storage)
+	if err != nil {
+		return nil, err
+	}
+	resp := &logical.Response{Secret: req.Secret}
+	resp.Secret.TTL = config.TTL
+	resp.Secret.MaxTTL = config.MaxTTL
+	return resp, nil
+}
+
 const backendHelp = `
 The LaunchDarkly secrets engine generates LaunchDarkly tokens.
 `
+const programmaticAPIKey = `LDApiKey`

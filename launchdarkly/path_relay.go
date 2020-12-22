@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/hashicorp/vault/sdk/framework"
@@ -14,7 +13,6 @@ import (
 
 func (b *backend) pathRelayWrite(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	//logger := hclog.New(&hclog.LoggerOptions{})
-	// Validate we didn't get extraneous fields
 	if err := validateFields(req, data); err != nil {
 		return nil, logical.CodedError(422, err.Error())
 	}
@@ -39,7 +37,7 @@ func (b *backend) pathRelayWrite(ctx context.Context, req *logical.Request, data
 		return nil, err
 	}
 
-	req.Storage.Put(ctx, newEntry)
+	err = req.Storage.Put(ctx, newEntry)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +51,6 @@ func (b *backend) pathRelayWrite(ctx context.Context, req *logical.Request, data
 
 func (b *backend) pathRelayRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	//logger := hclog.New(&hclog.LoggerOptions{})
-	// Validate we didn't get extraneous fields
 	if err := validateFields(req, data); err != nil {
 		return nil, logical.CodedError(422, err.Error())
 	}
@@ -68,6 +65,9 @@ func (b *backend) pathRelayRead(ctx context.Context, req *logical.Request, data 
 	var tokenPolicy ldapi.Policy
 
 	policyEntry, err := req.Storage.Get(ctx, "relay/policy/"+name)
+	if err != nil {
+		return nil, err
+	}
 	if policyEntry == nil {
 		return nil, nil
 	}
@@ -77,45 +77,22 @@ func (b *backend) pathRelayRead(ctx context.Context, req *logical.Request, data 
 		}
 	}
 
-	var relayEntry ldapi.RelayProxyConfig
-	entry, err := req.Storage.Get(ctx, "relay/entry/"+name)
-
-	if entry != nil {
-		if err := entry.DecodeJSON(&relayEntry); err != nil {
-			return nil, err
-		}
-	}
-
-	if entry != nil {
-		return &logical.Response{
-			Data: map[string]interface{}{
-				"token": relayEntry.FullKey,
-				"url":   fmt.Sprintf(`%s/settings/relay/%s/edit`, config.BaseUri, relayEntry.Id),
-			},
-		}, nil
-	}
-
 	token, err := CreateRelayToken(config, name, tokenPolicy)
 	if err != nil {
 		return nil, handleLdapiErr(err)
 	}
 
-	newEntry, err := logical.StorageEntryJSON("relay/entry/"+name, token)
-	if err != nil {
-		return nil, err
-	}
+	resp := b.Secret(programmaticAPIKey).Response(map[string]interface{}{
+		"token": token.FullKey,
+	}, map[string]interface{}{
+		"api_key_id":      token.Id,
+		"credential_type": "rac",
+		"secret_type":     "relay",
+	})
+	resp.Secret.MaxTTL = config.MaxTTL
+	resp.Secret.TTL = config.TTL
 
-	req.Storage.Put(ctx, newEntry)
-	if err != nil {
-		return nil, err
-	}
-
-	return &logical.Response{
-		Data: map[string]interface{}{
-			"token": token.FullKey,
-			"url":   fmt.Sprintf(`%s/settings/relay/%s/edit`, config.BaseUri, token.Id),
-		},
-	}, nil
+	return resp, nil
 }
 
 // CreatelaunchdarklyToken uses LaunchDarkly API to create a Relay Auto Config token
@@ -145,43 +122,21 @@ func CreateRelayToken(config *launchdarklyConfig, name string, policy ldapi.Poli
 
 func (b *backend) pathRelayDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	//logger := hclog.New(&hclog.LoggerOptions{})
-	// Validate we didn't get extraneous fields
 	if err := validateFields(req, data); err != nil {
 		return nil, logical.CodedError(422, err.Error())
 	}
 
 	name := data.Get("name").(string)
 
-	config, err := getConfig(b, ctx, req.Storage)
+	err := req.Storage.Delete(ctx, "relay/policy/"+name)
 	if err != nil {
 		return nil, err
-	}
-
-	var relayEntry ldapi.RelayProxyConfig
-	entry, err := req.Storage.Get(ctx, "relay/entry/"+name)
-
-	if entry != nil {
-		if err := entry.DecodeJSON(&relayEntry); err != nil {
-			return nil, err
-		}
-	}
-
-	if entry != nil {
-		err := DeleteRelayToken(config, name, relayEntry.Id)
-		if err != nil {
-			return nil, handleLdapiErr(err)
-		}
-
-		err = req.Storage.Delete(ctx, "relay/entry/"+name)
-		if err != nil {
-			return nil, handleLdapiErr(err)
-		}
 	}
 	return nil, nil
 }
 
 // DeleteRelayToken uses the LaunchDarkly API to delete a Relay Auto Congfig token
-func DeleteRelayToken(config *launchdarklyConfig, name string, tokenId string) error {
+func DeleteRelayToken(config *launchdarklyConfig, tokenId string) error {
 	//logger := hclog.New(&hclog.LoggerOptions{})
 
 	client, err := newClient(config, false)

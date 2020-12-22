@@ -1,7 +1,6 @@
 package launchdarkly
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -18,7 +17,6 @@ func TestCoderefsToken(t *testing.T) {
 	t.Run("add config", acceptanceTestEnv.addConfig)
 	t.Run("read coderefs token", acceptanceTestEnv.readCoderefsToken)
 	t.Run("reset coderefs token", acceptanceTestEnv.resetCoderefsToken)
-	t.Run("delete coderefs token", acceptanceTestEnv.deleteCoderefsToken)
 }
 
 func (e *testEnv) readCoderefsToken(t *testing.T) {
@@ -77,20 +75,4 @@ func (e *testEnv) resetCoderefsToken(t *testing.T) {
 		t.Fatal("token has not been reset")
 	}
 
-}
-
-func (e *testEnv) deleteCoderefsToken(t *testing.T) {
-	req := &logical.Request{
-		Operation: logical.DeleteOperation,
-		Path:      "coderefs/testVaultRepo",
-		Storage:   e.Storage,
-	}
-	resp, err := e.Backend.HandleRequest(e.Context, req)
-	if err != nil {
-		t.Fatalf("bad: resp: %#v\nerr:%v", resp, err)
-	}
-	fmt.Println(resp)
-	if resp != nil {
-		t.Fatal("token not successfully removed")
-	}
 }
