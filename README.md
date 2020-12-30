@@ -18,7 +18,7 @@ management tool.
     Success! Data written to: sys/plugins/catalog/vault-launchdarkly-secret-engine
     ```
 
-1. Enable the launchdarkly secrets engine:
+2. Enable the launchdarkly secrets engine:
 
     ```text
     $ vault secrets enable -path="launchdarkly" -plugin-name="vault-launchdarkly-secret-engine" plugin
@@ -28,27 +28,31 @@ management tool.
     By default, the secrets engine will mount at the name of the engine. To
     enable the secrets engine at a different path, use the `-path` argument.
 
-1. Configure the backend with user credentials that will be able to interact with the LaunchDarkly API and create tokens.
+3. Configure the backend with user credentials that will be able to interact with the LaunchDarkly API and create tokens.
 
     ```text
     $ vault write launchdarkly/config accessToken="123456789"
     Success! Data written to: launchdarkly/config
     ```
 
+4. There is optional configuration parameters `ttl` and `max_ttl` that if set will override the default system TTL for tokens issued from this Secret Engine.
 ### Usage
 
 After the secrets engine is configured and a user/machine has a Vault token with the proper permission, it can generate tokens.
 
-1. Generate a new LaunchDarkly token by reading from the  `launchdarkly/role/<custom-role-key>` endpoint:
+1. Generate a new LaunchDarkly token by reading from the  `launchdarkly/role/<custom-role-key>` endpoint. Each read will generate a new token and associated TTL:
 
     ```text
-    $ vault read launchdarkly/role/<custom-role-key>"
-    Key      Value
-    ---      -----
-    token    api-123456789
+    $ vault read launchdarkly/role/<custom-role-key>
+    Key                Value
+    ---                -----
+    lease_id           launchdarkly/role/api-writer/DIQhrlO5XoLAQrBKUowGXZ8h
+    lease_duration     768h
+    lease_renewable    true
+    token              api-12345
     ```
 
-2. To read SDK keys for an Environment from the `launchdarkly/project/<project-key>/<environment-key>`:
+2. To read SDK keys for an Environment `launchdarkly/project/<project-key>/<environment-key>`. The keys are not returned as a Secret unlike API Tokens, they are long-lived values that are the same for all clients:
 
     ```text
     $ vault read launchdarkly/project/test-project/development
@@ -60,6 +64,15 @@ After the secrets engine is configured and a user/machine has a Vault token with
     ```
 
 3. To reset a SDK or Mobile key you can read from: `vault read launchdarkly/project/<project-key>/<environment-key>/reset/sdk` where the final string can be `sdk` or `mobile`.
+
+Paths:
+```
+info - Returns build information the Secret Engine version.
+config - Configuration for the plugin.
+role - Generates tokens for associated LaunchDarkly Custom Roles.
+relay - After writing a policy to Vault storage, it will generate tokens for that policy.
+coderefs - Generate short-lived tokens to push over Code References.
+```
 
 ## Local Development
 
