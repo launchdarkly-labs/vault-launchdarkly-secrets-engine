@@ -28,7 +28,7 @@ management tool.
     By default, the secrets engine will mount at the name of the engine. To
     enable the secrets engine at a different path, use the `-path` argument.
 
-3. Configure the backend with user credentials that will be able to interact with the LaunchDarkly API and create tokens.
+3. Configure the backend with user credentials that will be able to interact with the LaunchDarkly API and create tokens. Additional information about Token Creation is below.
 
     ```text
     $ vault write launchdarkly/config accessToken="123456789"
@@ -36,6 +36,51 @@ management tool.
     ```
 
 4. There is optional configuration parameters `ttl` and `max_ttl` that if set will override the default system TTL for tokens issued from this Secret Engine.
+
+### Generating Token
+You can create a token by going to [Authorization](https://app.launchdarkly.com/settings/authorization/tokens/new) in your Dashboard.
+
+```
+[
+  {
+    "effect": "allow",
+    "resources": [
+      "proj/*:env/*"
+    ],
+    "actions": [
+      "updateApiKey",
+      "updateMobileKey"
+    ]
+	},
+  {
+    "effect": "allow",
+    "resources": [
+      "code-reference-repository/*"
+    ],
+    "actions": [
+      "*"
+    ]
+	},
+    {
+    "effect": "allow",
+    "resources": [
+      "relay-proxy-config/*"
+    ],
+    "actions": [
+      "*"
+    ]
+	},
+      {
+    "effect": "allow",
+    "resources": [
+      "service-token/*"
+    ],
+    "actions": [
+      "*"
+    ]
+	}
+]
+```
 ### Usage
 
 After the secrets engine is configured and a user/machine has a Vault token with the proper permission, it can generate tokens.
