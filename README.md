@@ -3,6 +3,9 @@
 This plugin will allow you to create a secret backend that will use the LaunchDarkly API to generate dynamic LaunchDarkly tokens.  Usage can be restricted using the highly customizable Vault ACL system.
 
 Forked from: https://github.com/nytimes/vault-fastly-secret-engine
+### Prerequisites
+1. [Vault CLI ](https://developer.hashicorp.com/vault/downloads)
+2. [GoReleaser ](https://goreleaser.com/install/)
 
 ### Setup
 
@@ -136,7 +139,7 @@ In a second terminal window...
 ```bash
 export VAULT_ADDR='http://0.0.0.0:1234'
 vault login myroot
-SHASUM=$(shasum -a 256 dist/vault-launchdarkly-secrets-engine_linux_amd64/vault-launchdarkly-secrets-engine | cut -d " " -f1)
+SHASUM=$(shasum -a 256 dist/vault-launchdarkly-secrets-engine_linux_amd64_v1/vault-launchdarkly-secrets-engine | cut -d " " -f1)
 vault write sys/plugins/catalog/secret/vault-launchdarkly-secrets-engine sha_256="$SHASUM" command="vault-launchdarkly-secrets-engine"
 vault secrets enable -path="launchdarkly" -plugin-name="vault-launchdarkly-secrets-engine" plugin
 vault write launchdarkly/config access_token="123456789"
